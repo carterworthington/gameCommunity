@@ -1,4 +1,54 @@
+import axios from "axios";
 import { NextRequest, NextResponse } from "next/server";
+
+const sampleGames = [
+  {
+    igdbId: 1,
+    title: "Horizon Forbidden West",
+    coverImage:
+      "https://images.igdb.com/igdb/image/upload/t_cover_big/co1p87.jpg",
+    genre: "Action RPG",
+    platforms: "PlayStation 5",
+  },
+  {
+    igdbId: 2,
+    title: "Elden Ring",
+    coverImage:
+      "https://images.igdb.com/igdb/image/upload/t_cover_big/co4vjc.jpg",
+    genre: "Action RPG",
+    platforms: "PC, PlayStation 5, Xbox Series X",
+  },
+  {
+    igdbId: 3,
+    title: "The Legend of Zelda: Tears of the Kingdom",
+    coverImage:
+      "https://images.igdb.com/igdb/image/upload/t_cover_big/co5z9s.jpg",
+    genre: "Adventure",
+    platforms: "Nintendo Switch",
+  },
+  {
+    igdbId: 4,
+    title: "Forza Horizon 5",
+    coverImage:
+      "https://images.igdb.com/igdb/image/upload/t_cover_big/co86z5.jpg",
+    genre: "Racing",
+    platforms: "PC, Xbox Series X",
+  },
+  {
+    igdbId: 5,
+    title: "Overwatch 2",
+    coverImage:
+      "https://images.igdb.com/igdb/image/upload/t_cover_big/co3z38.jpg",
+    genre: "Shooter",
+    platforms: "PC, PlayStation 5, Xbox Series X",
+  },
+];
+
+function buildCoverUrl(url: string): string {
+  if (!url) return "";
+  const normalized = url.startsWith("//") ? `https:${url}` : url;
+  return normalized.replace("t_thumb", "t_cover_big");
+}
 
 /**
  * Search for games in IGDB database
@@ -15,16 +65,53 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  try {
-    // TODO: Implement IGDB API search
-    // This will be implemented in Phase 2
+  const clientId = process.env.IGDB_CLIENT_ID;
+  const accessToken = process.env.IGDB_ACCESS_TOKEN;
+
+  if (!clientId || !accessToken) {
+    const fallbackResults = sampleGames.filter((game) =>
+      game.title.toLowerCase().includes(query.toLowerCase())
+    );
+
     return NextResponse.json({
-      games: [],
-      message: "IGDB search coming soon",
+      games: fallbackResults.length > 0 ? fallbackResults : sampleGames,
+      message:
+        "IGDB credentials not configured. Showing sample results for development.",
     });
+  }
+
+  try {
+    const requestBody = `fields id,name,cover.url,genres.name,platforms.name,first_release_date,summary; search "${query}"; limit 12; sort first_release_date desc;`;
+    const response = await axios.post("https://api.igdb.com/v4/games", requestBody, {
+      headers: {
+        "Client-ID": clientId,
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "text/plain",
+      },
+    });
+
+    const games = (response.data || []).map((game: any) => ({
+      igdbId: game.id,
+      title: game.name,
+      coverImage: game.cover?.url ? buildCoverUrl(game.cover.url) : undefined,
+      genre:
+        Array.isArray(game.genres) && game.genres.length > 0
+          ? game.genres.map((genre: any) => genre.name).join(", ")
+          : undefined,
+      platforms:
+        Array.isArray(game.platforms) && game.platforms.length > 0
+          ? game.platforms.map((platform: any) => platform.name).join(", ")
+          : undefined,
+      summary: game.summary,
+    }));
+
+    return NextResponse.json({ games });
   } catch (error) {
     return NextResponse.json(
-      { error: "Failed to search games" },
+      {
+        error:
+          "Could not fetch IGDB games. Please verify your IGDB credentials and access token.",
+      },
       { status: 500 }
     );
   }

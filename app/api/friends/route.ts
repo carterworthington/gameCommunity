@@ -1,20 +1,34 @@
 import { NextRequest, NextResponse } from "next/server";
-
-/**
- * Friend management endpoints
- * GET /api/friends - Get user's friends
- * POST /api/friends/request - Send friend request
- * POST /api/friends/accept - Accept friend request
- */
+import { prisma } from "@/lib/db";
+import { getServerAuthSession } from "@/lib/auth";
 
 export async function GET(request: NextRequest) {
   try {
-    // TODO: Get user session
-    // const session = await getServerSession();
-    
-    // TODO: Fetch user's friends from database
-    return NextResponse.json({ friends: [] });
+    const session = await getServerAuthSession();
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const [friends, incomingRequests, outgoingRequests] = await Promise.all([
+      prisma.friend.findMany({
+        where: { userId: session.user.id },
+        include: { friend: true },
+      }),
+      prisma.friendRequest.findMany({
+        where: { receiverId: session.user.id, status: "pending" },
+        include: { sender: true },
+        orderBy: { createdAt: "desc" },
+      }),
+      prisma.friendRequest.findMany({
+        where: { senderId: session.user.id, status: "pending" },
+        include: { receiver: true },
+        orderBy: { createdAt: "desc" },
+      }),
+    ]);
+
+    return NextResponse.json({ friends, incomingRequests, outgoingRequests });
   } catch (error) {
+    console.error("Friends fetch error:", error);
     return NextResponse.json(
       { error: "Failed to fetch friends" },
       { status: 500 }
