@@ -1,0 +1,124 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                    String                 @id @default(cuid())
+  email                 String                 @unique
+  username              String                 @unique
+  password              String
+  avatar                String?
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+
+  // Relations
+  games                 UserGame[]
+  availabilityStatus    AvailabilityStatus?
+  sentFriendRequests    FriendRequest[]        @relation("Sender")
+  receivedFriendRequests FriendRequest[]       @relation("Receiver")
+  friends               Friend[]               @relation("User")
+  friendOf              Friend[]               @relation("Friend")
+
+  @@index([email])
+  @@index([username])
+}
+
+model Console {
+  id        String   @id @default(cuid())
+  name      String   @unique // PS5, Xbox Series X, Nintendo Switch, PC
+  createdAt DateTime @default(now())
+
+  // Relations
+  userGames UserGame[]
+
+  @@index([name])
+}
+
+model Game {
+  id        String     @id @default(cuid())
+  igdbId    Int?       @unique // External IGDB ID for caching
+  title     String
+  coverImage String?
+  genre     String?
+  platforms String?    // JSON string of platforms
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  // Relations
+  userGames UserGame[]
+
+  @@index([title])
+  @@index([igdbId])
+}
+
+model UserGame {
+  id        String   @id @default(cuid())
+  userId    String
+  gameId    String
+  consoleId String
+  addedAt   DateTime @default(now())
+
+  // Relations
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  game      Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  console   Console  @relation(fields: [consoleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, gameId, consoleId])
+  @@index([userId])
+  @@index([gameId])
+  @@index([consoleId])
+}
+
+model AvailabilityStatus {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  status      String   @default("offline") // available, away, offline
+  consoles    String   @default("[]") // JSON array of console IDs available
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model FriendRequest {
+  id        String   @id @default(cuid())
+  senderId  String
+  receiverId String
+  status    String   @default("pending") // pending, accepted, rejected, blocked
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  sender    User     @relation("Sender", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver  User     @relation("Receiver", fields: [receiverId], references: [id], onDelete: Cascade)
+
+  @@unique([senderId, receiverId])
+  @@index([senderId])
+  @@index([receiverId])
+  @@index([status])
+}
+
+model Friend {
+  id        String   @id @default(cuid())
+  userId    String
+  friendId  String
+  createdAt DateTime @default(now())
+
+  // Relations
+  user      User     @relation("User", fields: [userId], references: [id], onDelete: Cascade)
+  friend    User     @relation("Friend", fields: [friendId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, friendId])
+  @@index([userId])
+  @@index([friendId])
+}
