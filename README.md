@@ -1,4 +1,4 @@
-"# GameCommunity
+GameCommunity
 
 A social gaming hub where friends can log games they play across consoles and discover what others are playing.
 
