@@ -50,6 +50,31 @@ function buildCoverUrl(url: string): string {
   return normalized.replace("t_thumb", "t_cover_big");
 }
 
+let cachedToken: string | null = null;
+let cachedTokenExpiry = 0;
+
+async function fetchTwitchAccessToken(clientId: string, clientSecret: string) {
+  const now = Date.now();
+  if (cachedToken && cachedTokenExpiry > now + 30_000) {
+    return cachedToken;
+  }
+
+  const tokenUrl = `https://id.twitch.tv/oauth2/token?client_id=${encodeURIComponent(
+    clientId
+  )}&client_secret=${encodeURIComponent(clientSecret)}&grant_type=client_credentials`;
+
+  const response = await axios.post(tokenUrl);
+  const data = response.data;
+
+  if (!data?.access_token || !data?.expires_in) {
+    throw new Error("Failed to fetch Twitch access token");
+  }
+
+  cachedToken = data.access_token;
+  cachedTokenExpiry = now + Number(data.expires_in) * 1000;
+  return cachedToken;
+}
+
 /**
  * Search for games in IGDB database
  * GET /api/games/search?query=pokemon
@@ -67,8 +92,24 @@ export async function GET(request: NextRequest) {
 
   const clientId = process.env.IGDB_CLIENT_ID;
   const accessToken = process.env.IGDB_ACCESS_TOKEN;
+  const clientSecret = process.env.IGDB_CLIENT_SECRET;
 
-  if (!clientId || !accessToken) {
+  let authToken = accessToken;
+  if (!authToken && clientId && clientSecret) {
+    try {
+      authToken = await fetchTwitchAccessToken(clientId, clientSecret);
+    } catch (error) {
+      return NextResponse.json(
+        {
+          error:
+            "Could not fetch IGDB access token from Twitch. Verify your Twitch/IGDB credentials.",
+        },
+        { status: 500 }
+      );
+    }
+  }
+
+  if (!clientId || !authToken) {
     const fallbackResults = sampleGames.filter((game) =>
       game.title.toLowerCase().includes(query.toLowerCase())
     );
@@ -85,7 +126,7 @@ export async function GET(request: NextRequest) {
     const response = await axios.post("https://api.igdb.com/v4/games", requestBody, {
       headers: {
         "Client-ID": clientId,
-        Authorization: `Bearer ${accessToken}`,
+        Authorization: `Bearer ${authToken}`,
         "Content-Type": "text/plain",
       },
     });

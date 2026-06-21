@@ -1,1 +1,73 @@
 @import "tailwindcss";
+
+:root {
+  color-scheme: light;
+}
+
+.dark {
+  color-scheme: dark;
+}
+
+body {
+  background-color: #f8fafc;
+  color: #0f172a;
+}
+
+.dark body {
+  background-color: #0f172a;
+  color: #f8fafc;
+}
+
+.dark .bg-white {
+  background-color: #0f172a !important;
+}
+
+.dark .bg-blue-50 {
+  background-color: #0f172a !important;
+}
+
+.dark .bg-green-50 {
+  background-color: #0f172a !important;
+}
+
+.dark .bg-purple-50 {
+  background-color: #111827 !important;
+}
+
+.dark .bg-orange-50 {
+  background-color: #111827 !important;
+}
+
+.dark .border-slate-200 {
+  border-color: #334155 !important;
+}
+
+.dark .border-blue-200 {
+  border-color: #1e3a8a !important;
+}
+
+.dark .border-green-200 {
+  border-color: #14532d !important;
+}
+
+.dark .border-purple-200 {
+  border-color: #4c1d95 !important;
+}
+
+.dark .border-orange-200 {
+  border-color: #7c2d12 !important;
+}
+
+.dark .text-gray-700,
+.dark .text-slate-700 {
+  color: #e2e8f0 !important;
+}
+
+.dark .text-gray-600,
+.dark .text-slate-600,
+.dark .text-gray-500,
+.dark .text-slate-500,
+.dark .text-gray-400,
+.dark .text-slate-400 {
+  color: #cbd5e1 !important;
+}

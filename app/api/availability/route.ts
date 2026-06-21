@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/db";
+import { getServerAuthSession } from "@/lib/auth";
 
 /**
  * Update user's availability status
@@ -7,6 +9,11 @@ import { NextRequest, NextResponse } from "next/server";
  */
 export async function POST(request: NextRequest) {
   try {
+    const session = await getServerAuthSession();
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const body = await request.json();
     const { status, consoles } = body;
 
@@ -17,12 +24,32 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // TODO: Update availability status in database
+    if (consoles !== undefined && !Array.isArray(consoles)) {
+      return NextResponse.json(
+        { error: "Consoles must be an array" },
+        { status: 400 }
+      );
+    }
+
+    await prisma.availabilityStatus.upsert({
+      where: { userId: session.user.id },
+      update: {
+        status,
+        consoles: JSON.stringify(consoles ?? []),
+      },
+      create: {
+        userId: session.user.id,
+        status,
+        consoles: JSON.stringify(consoles ?? []),
+      },
+    });
+
     return NextResponse.json(
       { message: "Availability status updated" },
       { status: 200 }
     );
   } catch (error) {
+    console.error("Availability update error:", error);
     return NextResponse.json(
       { error: "Failed to update availability" },
       { status: 500 }
@@ -36,15 +63,21 @@ export async function POST(request: NextRequest) {
  */
 export async function GET(request: NextRequest) {
   try {
-    // TODO: Get user session
-    // const session = await getServerSession();
-    
-    // TODO: Fetch user's availability status
+    const session = await getServerAuthSession();
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const availability = await prisma.availabilityStatus.findUnique({
+      where: { userId: session.user.id },
+    });
+
     return NextResponse.json({
-      status: "offline",
-      consoles: [],
+      status: availability?.status ?? "offline",
+      consoles: availability?.consoles ? JSON.parse(availability.consoles) : [],
     });
   } catch (error) {
+    console.error("Availability fetch error:", error);
     return NextResponse.json(
       { error: "Failed to fetch availability" },
       { status: 500 }
